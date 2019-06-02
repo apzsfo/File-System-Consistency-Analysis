@@ -17,7 +17,11 @@ def main():
     except IOError:
         sys.stderr.write("Error opening file system image\n")
         exit(1)
+    #Block Consistency Audits
 
+    #I-node Allocation Audits
+
+    #Directory Consistency Audits
 
     infile.close()
     exit(0)
