@@ -1,10 +1,10 @@
+#!/usr/bin/env python3
+
 #NAME: Ryan Nemiroff, Andrew Zeff
 #EMAIL: ryguyn@gmail.com, apzsfo@g.ucla.edu#
 #ID: 304903942, 804994987
-#!/usr/bin/env python3
 
 import sys
-import csv
 
 def inodeAllocationAudit(file, numInodes, startInode): #allocating inodes
     file.seek(0) #start at beginning
@@ -70,16 +70,7 @@ def main():
         infile = open(sys.argv[1])
     except IOError:
         sys.stderr.write("Error opening file system image\n")
-        exit(1)
-
-    numBlocks = 0
-    numInodes = 0
-    for line in infile:
-        line = line.rstrip().split(',')
-        if line[0] == "SUPERBLOCK":
-            numBlocks = int(line[1])
-            numInodes = int(line[2])
-            startInode = int(line[7])-1
+        exit(1)            
 
     #Block Consistency Audits
     num_blocks = 0
@@ -97,12 +88,13 @@ def main():
         if parsed[0] == 'SUPERBLOCK': #get sizes
             num_blocks = int(parsed[1])
             num_inodes = int(parsed[2])
-            block_size = int(fields[3])
-            inode_size = int(fields[4])
+            block_size = int(parsed[3])
+            inode_size = int(parsed[4])
+            start_inode = int(parsed[7])-1
         if parsed[0] == 'INODE': #capture blocks corresponding to particular inodes
             #inode_dict[int(parsed[1])] = []
             for num in range(12, 27):
-                if int(parsed[num]) not in block_info
+                if int(parsed[num]) not in block_info:
                     block_info[int(parsed[num])] = {"bfree": 0, "referenced": 1, "direction" : [0], "offset" : [num - 12], "inode_num" : [int(parsed[1])]}
                     #inode_dict[int(parsed[1])].append(int(parsed[num]))
                 else:
@@ -123,13 +115,13 @@ def main():
                     block_info[int(parsed[num])]["offset"][length -1] = 12 + 256 + 256*256
 
 
-    file.seek(0) #start at beginning of file
+    infile.seek(0) #start at beginning of file
     for csv in infile:
         parsed = csv.split(',')
         if parsed[0] == 'GROUP': #find information for the first valid block
             first_valid = int(parsed[8]) + inode_size * num_inodes / block_size
         if parsed[0] == 'BFREE': #check free list
-            if int(parsed[1]) in block_info
+            if int(parsed[1]) in block_info:
                 block_info[int(parsed[1])]["bfree"] = 1
             else:
                 block_info[int(parsed[1])] = {"bfree": 1, "referenced": 0, "direction" : [0], "offset" : [-1], "inode_nums" : []}
@@ -146,17 +138,17 @@ def main():
             elif num > 0 and num < first_valid and block_info[num]["offset"][i] != -1:
                 sys.stdout.write("RESERVED " + direct_key[block_info[num]["direction"][i]] + " " + num + " IN INODE " + block_info[num]["inode_num"][i] + " AT OFFSET " + block_info[num]["offset"][i] + "\n")
                 reserved = 1
-            if block_info[num]["referenced"] == 0 and block_info[num]["bfree"] == 0 and reserved = 0 and invalid = 0:
+            if block_info[num]["referenced"] == 0 and block_info[num]["bfree"] == 0 and reserved == 0 and invalid == 0:
                 sys.stdout.write("UNREFERENCED BLOCK " + num)
-            if block_info[num]["bfree"] == 1 and block_info["referenced"] > 0 and reserved == 0 and invalid == 0 and allocated_conditional == 0:
+            if block_info[num]["bfree"] == 1 and block_info[num]["referenced"] > 0 and reserved == 0 and invalid == 0 and allocated_conditional == 0:
                 sys.stdout.write("ALLOCATED BLOCK " + num + " ON FREELIST" + "\n")
                 allocated_conditional = 1
-            if block_info["referenced"] > 1 and reserved = 0 and invalid = 0:
-                sys.stdout.write("DUPLICATE " + direct_key[block_info[num]["direction"][i]] + " " + num + "\n")
+            if block_info[num]["referenced"] > 1 and reserved == 0 and invalid == 0:
+                sys.stdout.write("DUPLICATE " + direct_key[block_info[num]["direction"][i]] + " " + str(num) + "\n")
 
     #I-node Allocation Audits
-    inodeAllocationAudit(infile, numInodes, startInode)
-    directoryConsistencyAudit(infile, numInodes)
+    inodeAllocationAudit(infile, num_inodes, start_inode)
+    directoryConsistencyAudit(infile, num_inodes)
 
     infile.close()
 
