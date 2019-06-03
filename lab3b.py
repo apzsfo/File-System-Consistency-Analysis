@@ -8,14 +8,14 @@ import sys
 
 def inodeAllocationAudit(file, numInodes, startInode): #allocating inodes
     file.seek(0) #start at beginning
-    allocatedInodes = [False]*numInodes
-    freelistInodes = [False]*numInodes
-    for line in file:
+    allocatedInodes = [False]*numInodes #allocated
+    freelistInodes = [False]*numInodes #free list of inodes
+    for line in file: #look at every csv line in each file
         line = line.rstrip().split(',')
-        if line[0] == "INODE":
+        if line[0] == "INODE": #check for INODE summary
             if int(line[1]) >= 1 and int(line[1]) <= numInodes:
                 allocatedInodes[int(line[1])-1] = True
-        elif line[0] == "IFREE":
+        elif line[0] == "IFREE":    #IFREE summary
             if int(line[1]) >= 1 and int(line[1]) <= numInodes:
                 freelistInodes[int(line[1])-1] = True
     for i in range(numInodes):
@@ -24,41 +24,41 @@ def inodeAllocationAudit(file, numInodes, startInode): #allocating inodes
         if (i >= startInode) and (not allocatedInodes[i]) and (not freelistInodes[i]):
             print("UNALLOCATED INODE {} NOT ON FREELIST".format(i+1))
 
-def directoryConsistencyAudit(file, numInodes):
-    file.seek(0)
+def directoryConsistencyAudit(file, numInodes): #directory consistency
+    file.seek(0) #start at zero offset
     inodeLinkNum = [None]*numInodes
     inodeCountedLinks = [0]*numInodes
     dirInfos = []
     selfPtrRefs = []
     parentPtrRefs = []
     parentsMap = [None]*numInodes
-    for line in file:
-        line = line.rstrip().split(',')
-        if line[0] == "INODE":
+    for line in file: #each line in csv
+        line = line.rstrip().split(',') #convert to array
+        if line[0] == "INODE": #check for INODE
             if int(line[1]) >= 1 and int(line[1]) <= numInodes:
                 inodeLinkNum[int(line[1])-1] = int(line[6])
-        elif line[0] == "DIRENT":
+        elif line[0] == "DIRENT":       #check for DIRENT
             if int(line[3]) >= 1 and int(line[3]) <= numInodes:
                 inodeCountedLinks[int(line[3])-1] += 1
                 dirInfos.append((line[1], line[3], line[6]))
                 if parentsMap[int(line[3])-1] is None:
                     parentsMap[int(line[3])-1] = line[1]
-                if line[6] == "'.'":
+                if line[6] == "'.'": #check for .
                     selfPtrRefs.append((line[1], line[3]))
-                elif line[6] == "'..'":
+                elif line[6] == "'..'": #check for ..
                     parentPtrRefs.append((line[1], line[3]))
             else:
                 print("DIRECTORY INODE {0} NAME {1} INVALID INODE {2}".format(line[1], line[6], line[3]))
-    for dirInfo in dirInfos:
+    for dirInfo in dirInfos: #scan directory information
         if inodeLinkNum[int(dirInfo[1])-1] is None:
             print("DIRECTORY INODE {0} NAME {1} UNALLOCATED INODE {2}".format(dirInfo[0], dirInfo[2], dirInfo[1]))
-    for i in range(numInodes):
+    for i in range(numInodes): #scan all inodes
         if (inodeLinkNum[i] is not None) and (not inodeLinkNum[i] == inodeCountedLinks[i]):
             print("INODE {0} HAS {1} LINKS BUT LINKCOUNT IS {2}".format(i+1, inodeCountedLinks[i], inodeLinkNum[i]))
-    for dirInodes in selfPtrRefs:
+    for dirInodes in selfPtrRefs:   #scan reference pointers
         if not dirInodes[1] == dirInodes[0]:
             print("DIRECTORY INODE {0} NAME '.' LINK TO INODE {1} SHOULD BE {0}".format(dirInodes[0], dirInodes[1]))
-    for dirInodes in parentPtrRefs:
+    for dirInodes in parentPtrRefs: #scan parent reference pointers
         if not dirInodes[1] == parentsMap[int(dirInodes[0])-1]:
             print("DIRECTORY INODE {0} NAME '..' LINK TO INODE {1} SHOULD BE {2}".format(dirInodes[0], dirInodes[1], parentsMap[int(dirInodes[0])-1]))
 
@@ -94,26 +94,27 @@ def main():
         if parsed[0] == 'INODE': #capture blocks corresponding to particular inodes
             #inode_dict[int(parsed[1])] = []
             for num in range(12, 27):
-                if int(parsed[num]) not in block_info:
-                    block_info[int(parsed[num])] = {"bfree": 0, "referenced": 1, "direction" : [0], "offset" : [num - 12], "inode_num" : [int(parsed[1])]}
-                    #inode_dict[int(parsed[1])].append(int(parsed[num]))
-                else:
-                    #inode_dict[int(parsed[1])].append(int(parsed[num]))
-                    block_info[int(parsed[num])]["referenced"] += 1
-                    block_info[int(parsed[num])]["inode_num"].append(int(parsed[1]))
-                    block_info[int(parsed[num])]["offset"].append(num - 12)
-                    block_info[int(parsed[num])]["direction"].append(0)
-                length = len(block_info[int(parsed[num])]["direction"])
-                if num == 24:
-                    block_info[int(parsed[num])]["direction"][length-1] = 1 #handling the indirect cases
-                
-                if num == 25:
-                    block_info[int(parsed[num])]["direction"][length-1] = 2
-                    block_info[int(parsed[num])]["offset"][length-1] = 12 + 256
-                if num == 26:
-                    block_info[int(parsed[num])]["direction"][length -1] = 3
-                    block_info[int(parsed[num])]["offset"][length -1] = 12 + 256 + 256*256
-
+                if int(parsed[num]) != 0:
+                    #print(int(parsed[num]))
+                    if int(parsed[num]) not in block_info:
+                        block_info[int(parsed[num])] = {"bfree": 0, "referenced": 1, "direction" : [0], "offset" : [num - 12], "inode_num" : [int(parsed[1])]}
+                        #inode_dict[int(parsed[1])].append(int(parsed[num]))
+                    else:
+                        #inode_dict[int(parsed[1])].append(int(parsed[num]))
+                        block_info[int(parsed[num])]["referenced"] += 1
+                        block_info[int(parsed[num])]["inode_num"].append(int(parsed[1]))
+                        block_info[int(parsed[num])]["offset"].append(num - 12)
+                        block_info[int(parsed[num])]["direction"].append(0)
+                    length = len(block_info[int(parsed[num])]["direction"])
+                    if num == 24:
+                        block_info[int(parsed[num])]["direction"][length-1] = 1 #handling the indirect cases
+                    
+                    if num == 25:
+                        block_info[int(parsed[num])]["direction"][length-1] = 2
+                        block_info[int(parsed[num])]["offset"][length-1] = 12 + 256
+                    if num == 26:
+                        block_info[int(parsed[num])]["direction"][length -1] = 3
+                        block_info[int(parsed[num])]["offset"][length -1] = 12 + 256 + 256*256
 
     infile.seek(0) #start at beginning of file
     for csv in infile:
@@ -125,27 +126,46 @@ def main():
                 block_info[int(parsed[1])]["bfree"] = 1
             else:
                 block_info[int(parsed[1])] = {"bfree": 1, "referenced": 0, "direction" : [0], "offset" : [-1], "inode_nums" : []}
-
-    for num in block_info: #loop through all blocks
-        length = len(block_info[num]["direction"])
+        if parsed[0] == 'INDIRECT':
+            if int(parsed[5]) not in block_info:
+                block_info[int(parsed[5])] = {"bfree": 0, "referenced": 0, "direction" : [0], "offset" : [-1], "inode_nums" : []}
+#print(block_info)
+    step = first_valid
+    for num in sorted (block_info.keys()): #loop through all blocks
+        n = int(num)
+        unreferenced = 0
+        start = 0
+        end = -1
+        if(n >= int(first_valid)):
+            #print(num, step)
+            if n != step:
+                unreferenced = 1
+                start = step
+                end = n - 1
+                step = n
+            step += 1
+        length = len(block_info[n]["direction"])
+        allocated_conditional = 0
+        reserved = 0
+        invalid = 0
         for i in range (0, length): #duplicate check
-            allocated_conditional = 0
-            reserved = 0
-            invalid = 0
-            if (num < 0 or num > num_blocks - 1) and block_info[num]["offset"][i] != -1:
-                sys.stdout.write("INVALID " + direct_key[block_info[num]["direction"][i]] + " " + num + " IN INODE " + block_info[num]["inode_num"][i] + " AT OFFSET " + block_info[num]["offset"][i] + "\n")
+            if (n < 0 or n > num_blocks - 1) and block_info[n]["offset"][i] != -1:
+                sys.stdout.write("INVALID " + direct_key[block_info[n]["direction"][i]] + " " + str(n) + " IN INODE " + str(block_info[n]["inode_num"][i]) + " AT OFFSET " + str(block_info[n]["offset"][i]) + "\n")
                 invalid = 1
-            elif num > 0 and num < first_valid and block_info[num]["offset"][i] != -1:
-                sys.stdout.write("RESERVED " + direct_key[block_info[num]["direction"][i]] + " " + num + " IN INODE " + block_info[num]["inode_num"][i] + " AT OFFSET " + block_info[num]["offset"][i] + "\n")
+            elif n > 0 and n < first_valid and block_info[n]["offset"][i] != -1:
+                sys.stdout.write("RESERVED " + direct_key[block_info[n]["direction"][i]] + " " + str(n) + " IN INODE " + str(block_info[n]["inode_num"][i]) + " AT OFFSET " + str(block_info[n]["offset"][i]) + "\n")
                 reserved = 1
-            if block_info[num]["referenced"] == 0 and block_info[num]["bfree"] == 0 and reserved == 0 and invalid == 0:
-                sys.stdout.write("UNREFERENCED BLOCK " + num)
-            if block_info[num]["bfree"] == 1 and block_info[num]["referenced"] > 0 and reserved == 0 and invalid == 0 and allocated_conditional == 0:
-                sys.stdout.write("ALLOCATED BLOCK " + num + " ON FREELIST" + "\n")
+            if unreferenced == 1 and reserved == 0 and invalid == 0:
+                val = start
+                while val <= end:
+                    sys.stdout.write("UNREFERENCED BLOCK " + str(int(val)) + "\n")
+                    val += 1
+            if block_info[n]["bfree"] == 1 and block_info[n]["referenced"] > 0 and reserved == 0 and invalid == 0 and allocated_conditional == 0:
+                sys.stdout.write("ALLOCATED BLOCK " + str(n) + " ON FREELIST" + "\n")
                 allocated_conditional = 1
-            if block_info[num]["referenced"] > 1 and reserved == 0 and invalid == 0:
-                sys.stdout.write("DUPLICATE " + direct_key[block_info[num]["direction"][i]] + " " + str(num) + "\n")
-
+            if block_info[n]["referenced"] > 1 and reserved == 0 and invalid == 0:
+                sys.stdout.write("DUPLICATE " + direct_key[block_info[n]["direction"][i]] + " " + str(n) + " IN INODE " + str(block_info[n]["inode_num"][i]) + " AT OFFSET " + str(block_info[n]["offset"][i]) + "\n")
+#print(block_info)
     #I-node Allocation Audits
     inodeAllocationAudit(infile, num_inodes, start_inode)
     directoryConsistencyAudit(infile, num_inodes)
