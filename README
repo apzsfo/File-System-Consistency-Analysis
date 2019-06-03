@@ -2,5 +2,10 @@ NAME: Ryan Nemiroff, Andrew Zeff
 EMAIL: ryguyn@gmail.com, apzsfo@g.ucla.edu
 ID: 304903942, 804994987
 
-
+lab3b.py
+  Python source module to examine file system inconsistencies
+Makefile
+  To build the program with default, dist, and clean
+README
+  This file, which describes the contents of the other files
 
